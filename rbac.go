@@ -24,6 +24,22 @@ func (a *Authorizer) SetRole(r Role) error {
 		return errors.New("Role needs to have a name")
 	}
 
+	for _, rule := range r.Rules {
+		if len(rule.Verbs) == 0 {
+			return errors.New("Every rule needs at least a verb")
+		}
+
+		if len(rule.Resources) == 0 {
+			return errors.New("Every rule needs at least a resource")
+		}
+
+		for _, v := range rule.Verbs {
+			if v.String() == "" {
+				return errors.New("Every rule needs to have valid verbs")
+			}
+		}
+	}
+
 	a.Lock()
 	a.roles[r.Name] = r
 	a.Unlock()
@@ -112,13 +128,13 @@ func (a *Authorizer) Eval(verb Verb, subject []Subject, ressource Resource) Resu
 
 		// Check if subject matches rolebinding
 		var subjectOk bool
-		var subjectApplied *Subject
+		var subjectApplied Subject
 		for _, reqSubject := range subject {
 			for _, subj := range a.rolebindings[rb].Subjects {
 				subjectValidated := (subj.Name == reqSubject.Name && subj.Type == reqSubject.Type)
 				subjectOk = subjectOk || subjectValidated
 				if subjectValidated {
-					subjectApplied = &subj
+					subjectApplied = subj
 				}
 			}
 		}
