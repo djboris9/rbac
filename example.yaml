@@ -37,7 +37,7 @@ metadata:
   name: readonly
 rules:
 - verbs: ["get", "list", "watch"]
-  resources: ["nodes", "locations", "nodes/states"]
+  resources: ["nodes", "locations"]
 ---
 kind: RoleBinding
 metadata:

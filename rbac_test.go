@@ -13,7 +13,7 @@ type Evaldata struct {
 }
 
 func (e Evaldata) String() string {
-	return fmt.Sprintf("%s/%v/%s/%s/%s", e.Verb, e.Subject,
+	return fmt.Sprintf("v:%s,s:%v,n:%s,r:%s,rn:%s", e.Verb, e.Subject,
 		e.Resource.Namespace, e.Resource.Resource, e.Resource.ResourceName)
 }
 
@@ -183,7 +183,7 @@ func createExtensiveAuthorizer() *Authorizer {
 		Rules: []Rule{
 			{
 				Verbs:     []Verb{GET, LIST, WATCH},
-				Resources: []string{"nodes", "locations", "nodes/states"},
+				Resources: []string{"nodes", "locations"},
 			},
 		},
 	}
