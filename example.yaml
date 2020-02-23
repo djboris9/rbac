@@ -1,0 +1,33 @@
+---
+kind: Role
+metadata:
+  name: node-watcher
+rules:
+- verbs: ["get", "list", "watch"]
+  resources: ["nodes", "locations"]
+- verbs: ["get", "update", "delete"]
+  resources: ["nodes/states"]
+  resourceNames: ["linux"]
+---
+kind: RoleBinding
+metadata:
+  name: linux-node-watchers
+  scope: linux
+roleRef:
+  name: node-watcher
+subjects:
+- kind: User
+  name: bofh
+- kind: ServiceAccount
+  name: integrator
+- kind: Group
+  name: system:core
+---
+kind: RoleBinding
+metadata:
+  name: global-node-watchers
+roleRef:
+  name: node-watcher
+subjects:
+- kind: Group
+  name: superusers
