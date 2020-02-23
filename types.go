@@ -3,7 +3,7 @@ package rbac
 type Verb int
 
 const (
-	GET Verb = iota
+	GET Verb = iota // TODO 0 should be invalid
 	LIST
 	WATCH
 	CREATE
@@ -16,10 +16,10 @@ func (v Verb) String() string {
 	return []string{"get", "list", "watch", "create", "update", "patch", "delete"}[v]
 }
 
-type SubjectType int
+type SubjectType int // TODO rename to kind
 
 const (
-	User SubjectType = iota
+	User SubjectType = iota // TODO 0 shoud be invalid
 	Group
 	ServiceAccount
 )
@@ -40,19 +40,19 @@ type Role struct {
 }
 
 type RoleBinding struct {
-	Name     string
-	Role     string // References Role
-	Scope    string
-	Subjects []Subject
+	Name      string
+	Role      string // References Role
+	Namespace string
+	Subjects  []Subject
 }
 
 type Subject struct {
 	Name string
-	Type SubjectType
+	Type SubjectType // TODO rename to kind
 }
 
 type Resource struct {
-	Scope        string
+	Namespace    string
 	Resource     string
 	ResourceName string
 }

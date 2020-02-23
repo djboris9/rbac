@@ -5,7 +5,19 @@ import (
 	"testing"
 )
 
-func createTestdata() ([]Role, []RoleBinding) {
+type Evaldata struct {
+	Verb     Verb
+	Subject  []Subject
+	Resource Resource
+	Valid    bool
+}
+
+func (e Evaldata) String() string {
+	return fmt.Sprintf("%s/%v/%s/%s/%s", e.Verb, e.Subject,
+		e.Resource.Namespace, e.Resource.Resource, e.Resource.ResourceName)
+}
+
+func createTestdataBasic() ([]Role, []RoleBinding, []Evaldata) {
 	// Verb, Ressource, RessourceName
 	rules := []Rule{
 		{[]Verb{GET}, []string{"res-A"}, []string{"res-1"}},
@@ -35,20 +47,9 @@ func createTestdata() ([]Role, []RoleBinding) {
 		{Name: "rb-C", Role: "role-C", Subjects: []Subject{subjects[2], subjects[0]}},
 		{Name: "rb-D", Role: "role-D", Subjects: []Subject{subjects[2], subjects[1]}},
 		{Name: "rb-E", Role: "role-E", Subjects: []Subject{subjects[0]}},
-		{Name: "rb-F", Role: "role-B", Subjects: []Subject{subjects[0]}, Scope: "scope-1"},
+		{Name: "rb-F", Role: "role-B", Subjects: []Subject{subjects[0]}, Namespace: "scope-1"},
 	}
 
-	return roles, rolebindings
-}
-
-type Evaldata struct {
-	Verb     Verb
-	Subject  []Subject
-	Resource Resource
-	Valid    bool
-}
-
-func createEvaldata() []Evaldata {
 	ev := []Evaldata{
 		{GET, []Subject{{}}, Resource{}, false},
 		{GET, []Subject{{"s-user", User}}, Resource{"", "res-A", "res-1"}, true},
@@ -59,7 +60,31 @@ func createEvaldata() []Evaldata {
 		{DELETE, []Subject{{"s-user", User}}, Resource{"", "res-A", ""}, false},
 	}
 
-	return ev
+	return roles, rolebindings, ev
+}
+
+func TestRBACBasic(t *testing.T) {
+	// Setup authz
+	roles, rolebindings, evaldata := createTestdataBasic()
+
+	a := New()
+	for _, role := range roles {
+		a.SetRole(role)
+	}
+
+	for _, rb := range rolebindings {
+		a.SetRoleBinding(rb)
+	}
+
+	// Evaluate
+	for _, ev := range evaldata {
+		res := a.Eval(ev.Verb, ev.Subject, ev.Resource)
+		t.Logf("Result: %s", res)
+		if res.Success != ev.Valid {
+			t.Errorf("Should not validate, but did: %q for evaldata %v", res.String(), ev)
+			t.Fail()
+		}
+	}
 }
 
 // generator generates all permutations according to a model.
@@ -83,18 +108,21 @@ func generator(model []int, gen []int, pos int, ret chan<- []int) {
 	}
 }
 
-func generateEvaldata(data chan<- Evaldata) {
+// modeled after example.yaml
+/*
+ */
+func generateEvaldataExtensive(data chan<- Evaldata) {
 	// Input data
-	strs := []string{"", "res-A", "res-B", "res-1", "res-2",
-		"role-A", "role-B", "role-C", "role-D", "role-E",
-		"s-user", "s-group", "s-serviceaccount",
-		"rb-A", "rb-B", "rb-C", "rb-D", "rb-E", "rb-F",
-		"scope-1"}
+	strs := []string{"",
+		"node-watcher", "linux", "nodes", "locations", "nodes/states",
+		"linux-node-watchers", "bofh", "integrator", "system:core",
+		"global-node-watchers", "superusers", "readonly-services",
+		"readonly", "auditor"}
 
 	verbs := []Verb{0, GET, LIST, WATCH, DELETE, PATCH, UPDATE}
 	stypes := []SubjectType{User, Group, ServiceAccount}
 
-	// Model: verb, SubjectType, Subject, Scope, Ressource, RessourceName
+	// Model: verb, SubjectType, Subject, Namespace, Ressource, RessourceName
 	model := []int{len(verbs), len(stypes), len(strs), len(strs), len(strs), len(strs)}
 
 	// expCount contains the expected number of permutations
@@ -114,12 +142,12 @@ func generateEvaldata(data chan<- Evaldata) {
 		// Send data through the result channel
 		data <- Evaldata{
 			Verb: verbs[gen[0]],
-			Subject: []Subject{{ // TODO: Maybe create multiple subjects
+			Subject: []Subject{{ // We handle only one subject
 				Type: stypes[gen[1]],
 				Name: strs[gen[2]],
 			}},
 			Resource: Resource{
-				Scope:        strs[gen[3]],
+				Namespace:    strs[gen[3]],
 				Resource:     strs[gen[4]],
 				ResourceName: strs[gen[5]],
 			},
@@ -134,52 +162,95 @@ func generateEvaldata(data chan<- Evaldata) {
 	close(data)
 }
 
-func TestHeavy(t *testing.T) {
-	// Setup authz
-	roles, rolebindings := createTestdata()
+// modeled after example.yaml
+func createExtensiveAuthorizer() *Authorizer {
+	nodeWatcher := Role{
+		Name: "node-watcher",
+		Rules: []Rule{
+			{
+				Verbs:     []Verb{GET, LIST, WATCH},
+				Resources: []string{"nodes", "locations"},
+			},
+			{
+				Verbs:         []Verb{GET, UPDATE, DELETE},
+				Resources:     []string{"nodes/states"},
+				ResourceNames: []string{"linux"},
+			},
+		},
+	}
+	readonly := Role{
+		Name: "readonly",
+		Rules: []Rule{
+			{
+				Verbs:     []Verb{GET, LIST, WATCH},
+				Resources: []string{"nodes", "locations", "nodes/states"},
+			},
+		},
+	}
+
+	linuxNodeWatchers := RoleBinding{
+		Name:      "linux-node-watchers",
+		Namespace: "linux",
+		Role:      "node-watcher",
+		Subjects: []Subject{
+			{
+				Type: User,
+				Name: "bofh",
+			},
+			{
+				Type: ServiceAccount,
+				Name: "integrator",
+			},
+			{
+				Type: Group,
+				Name: "system:core",
+			},
+		},
+	}
+
+	globalNodeWatchers := RoleBinding{
+		Name: "global-node-watchers",
+		Role: "node-watcher",
+		Subjects: []Subject{
+			{
+				Type: Group,
+				Name: "superusers",
+			},
+		},
+	}
+
+	readOnlyServices := RoleBinding{
+		Name: "readonly-services",
+		Role: "readonly",
+		Subjects: []Subject{
+			{
+				Type: ServiceAccount,
+				Name: "auditor",
+			},
+		},
+	}
 
 	a := New()
-	for _, role := range roles {
-		a.SetRole(role)
-	}
+	a.SetRole(nodeWatcher)
+	a.SetRole(readonly)
+	a.SetRoleBinding(linuxNodeWatchers)
+	a.SetRoleBinding(globalNodeWatchers)
+	a.SetRoleBinding(readOnlyServices)
+	return a
+}
 
-	for _, rb := range rolebindings {
-		a.SetRoleBinding(rb)
-	}
+func TestRBACExtensive(t *testing.T) {
+	// Setup authz
+	a := createExtensiveAuthorizer()
 
 	// Generate data
 	ev := make(chan Evaldata)
-	go generateEvaldata(ev)
+	go generateEvaldataExtensive(ev)
 
 	for e := range ev {
 		res := a.Eval(e.Verb, e.Subject, e.Resource)
 		if res.Success {
-			fmt.Println(e)
-		}
-	}
-}
-
-func TestCreateSetup(t *testing.T) {
-	// Setup authz
-	roles, rolebindings := createTestdata()
-
-	a := New()
-	for _, role := range roles {
-		a.SetRole(role)
-	}
-
-	for _, rb := range rolebindings {
-		a.SetRoleBinding(rb)
-	}
-
-	// Evaluate
-	evaldata := createEvaldata()
-	for _, ev := range evaldata {
-		res := a.Eval(ev.Verb, ev.Subject, ev.Resource)
-		t.Logf("Result: %s", res)
-		if res.Success != ev.Valid {
-			t.Errorf("Should not validate, but did: %q for evaldata %v", res.String(), ev)
-			t.Fail()
+			fmt.Printf("%s -> %s\n", e, res)
 		}
 	}
 }

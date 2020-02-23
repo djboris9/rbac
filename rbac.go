@@ -108,7 +108,7 @@ func (a *Authorizer) Eval(verb Verb, subject []Subject, ressource Resource) Resu
 	var r bool
 	for rb := range a.rolebindings {
 		// Check if scope matches rolebinding
-		scopeOk := sMatchOrEmpty(a.rolebindings[rb].Scope, ressource.Scope)
+		scopeOk := sMatchOrEmpty(a.rolebindings[rb].Namespace, ressource.Namespace)
 
 		// Check if subject matches rolebinding
 		var subjectOk bool

@@ -12,7 +12,7 @@ rules:
 kind: RoleBinding
 metadata:
   name: linux-node-watchers
-  scope: linux
+  namespace: linux
 roleRef:
   name: node-watcher
 subjects:
@@ -31,3 +31,19 @@ roleRef:
 subjects:
 - kind: Group
   name: superusers
+---
+kind: Role
+metadata:
+  name: readonly
+rules:
+- verbs: ["get", "list", "watch"]
+  resources: ["nodes", "locations", "nodes/states"]
+---
+kind: RoleBinding
+metadata:
+  name: readonly-services
+roleRef:
+  name: readonly
+subjects:
+- kind: ServiceAccount
+  name: auditor
