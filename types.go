@@ -2,6 +2,10 @@ package rbac
 
 type Verb int
 
+// TODO: Maybe verbs should also be strings to allow individual operations
+// like impersonate or use in Kubernetes.
+// The set of verbs should be only recommended
+// https://kubernetes.io/docs/reference/access-authn-authz/authorization/#determine-the-request-verb
 const (
 	GET Verb = iota // TODO 0 should be invalid
 	LIST
