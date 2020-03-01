@@ -1,5 +1,7 @@
 package rbac
 
+import "fmt"
+
 type Verb int
 
 // TODO: Maybe verbs should also be strings to allow individual operations
@@ -53,6 +55,10 @@ type RoleBinding struct {
 type Subject struct {
 	Name string
 	Type SubjectType // TODO rename to kind
+}
+
+func (s Subject) String() string {
+	return fmt.Sprintf("%s:%s", s.Type, s.Name)
 }
 
 type Resource struct {

@@ -1,7 +1,9 @@
 package rbac
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 	"testing"
 )
 
@@ -15,6 +17,52 @@ type Evaldata struct {
 func (e Evaldata) String() string {
 	return fmt.Sprintf("v:%s,s:%v,n:%s,r:%s,rn:%s", e.Verb, e.Subject,
 		e.Resource.Namespace, e.Resource.Resource, e.Resource.ResourceName)
+}
+
+func TestVContains(t *testing.T) {
+	var failed bool
+	failed = failed || vContains([]Verb{}, GET)
+	failed = failed || vContains([]Verb{CREATE}, GET)
+	failed = failed || !vContains([]Verb{GET}, GET)
+	failed = failed || !vContains([]Verb{DELETE, PATCH}, PATCH)
+	failed = failed || !vContains([]Verb{PATCH, CREATE}, PATCH)
+
+	if failed {
+		t.Fail()
+	}
+}
+
+func TestSMatchOrEmpty(t *testing.T) {
+	var failed bool
+	failed = failed || !sMatchOrEmpty("", "abcd")
+	failed = failed || sMatchOrEmpty("abcd", "")
+	failed = failed || !sMatchOrEmpty("abcd", "abcd")
+	failed = failed || sMatchOrEmpty("abcd", "abc")
+
+	if failed {
+		t.Fail()
+	}
+}
+
+func TestSContains(t *testing.T) {
+	var failed bool
+
+	failed = failed || !sContains([]string{}, "", true)
+	failed = failed || sContains([]string{}, "", false)
+	failed = failed || sContains([]string{"x"}, "", true)
+	failed = failed || sContains([]string{"x"}, "", false)
+	failed = failed || !sContains([]string{"x"}, "x", true)
+	failed = failed || !sContains([]string{"x"}, "x", false)
+	failed = failed || sContains([]string{"x"}, "y", true)
+	failed = failed || sContains([]string{"x"}, "y", false)
+	failed = failed || sContains([]string{"a", "x"}, "y", true)
+	failed = failed || sContains([]string{"a", "x"}, "y", false)
+	failed = failed || sContains([]string{"x", "a"}, "y", true)
+	failed = failed || sContains([]string{"x", "a"}, "y", false)
+
+	if failed {
+		t.Fail()
+	}
 }
 
 func createTestdataBasic() ([]Role, []RoleBinding, []Evaldata) {
@@ -87,15 +135,15 @@ func TestRBACBasic(t *testing.T) {
 	}
 }
 
-// generator generates all permutations according to a model.
+// generatePermutations generates all permutations according to a model.
 // Arg gen must be a slice initialized to 0 with length of model.
 // Arg pos must be set to zero.
-func generator(model []int, gen []int, pos int, ret chan<- []int) {
+func generatePermutations(model []int, gen []int, pos int, ret chan<- []int) {
 	for i := 0; i < model[pos]; i++ {
 		gen[pos] = i
 
 		if pos < len(model)-1 {
-			generator(model, gen, pos+1, ret)
+			generatePermutations(model, gen, pos+1, ret)
 		} else {
 			cpy := make([]int, len(gen))
 			copy(cpy, gen)
@@ -109,8 +157,6 @@ func generator(model []int, gen []int, pos int, ret chan<- []int) {
 }
 
 // modeled after example.yaml
-/*
- */
 func generateEvaldataExtensive(data chan<- Evaldata) {
 	// Input data
 	strs := []string{"",
@@ -133,7 +179,7 @@ func generateEvaldataExtensive(data chan<- Evaldata) {
 
 	// Generator
 	genchan := make(chan []int)
-	go generator(model, make([]int, len(model)), 0, genchan)
+	go generatePermutations(model, make([]int, len(model)), 0, genchan)
 
 	counter := 0
 	for gen := range genchan {
@@ -243,60 +289,47 @@ func TestRBACExtensive(t *testing.T) {
 	// Setup authz
 	a := createExtensiveAuthorizer()
 
+	// Open data to validate
+	fd, err := os.Open("rbac_test_validation.list")
+	if err != nil {
+		t.Errorf("Got error opening rbac_test_validation.list: %q", err)
+		return
+	}
+	defer fd.Close()
+	scanner := bufio.NewScanner(fd)
+
 	// Generate data
 	ev := make(chan Evaldata)
 	go generateEvaldataExtensive(ev)
 
+	// Go through every permutation and check against validation list
 	for e := range ev {
 		res := a.Eval(e.Verb, e.Subject, e.Resource)
 		if res.Success {
-			fmt.Printf("%s -> %s\n", e, res)
+			now := fmt.Sprintf("%s -> %s", e, res)
+			fmt.Println(now)
+
+			if scanner.Scan() {
+				valid := scanner.Text()
+				//t.Errorf("%s", valid)
+				if now != valid {
+					t.Errorf("Should not validate %s", now)
+				}
+			} else {
+				if err := scanner.Err(); err != nil {
+					t.Errorf("Scanner had error %q", err)
+					return
+				}
+				t.Errorf("Successfull validation for %s but expected nothing", e)
+			}
 		}
 	}
-}
 
-func TestVContains(t *testing.T) {
-	var failed bool
-	failed = failed || vContains([]Verb{}, GET)
-	failed = failed || vContains([]Verb{CREATE}, GET)
-	failed = failed || !vContains([]Verb{GET}, GET)
-	failed = failed || !vContains([]Verb{DELETE, PATCH}, PATCH)
-	failed = failed || !vContains([]Verb{PATCH, CREATE}, PATCH)
-
-	if failed {
-		t.Fail()
+	for scanner.Scan() {
+		t.Errorf("Expected more valid results: %s", scanner.Text())
 	}
-}
 
-func TestSMatchOrEmpty(t *testing.T) {
-	var failed bool
-	failed = failed || !sMatchOrEmpty("", "abcd")
-	failed = failed || sMatchOrEmpty("abcd", "")
-	failed = failed || !sMatchOrEmpty("abcd", "abcd")
-	failed = failed || sMatchOrEmpty("abcd", "abc")
-
-	if failed {
-		t.Fail()
-	}
-}
-
-func TestSContains(t *testing.T) {
-	var failed bool
-
-	failed = failed || !sContains([]string{}, "", true)
-	failed = failed || sContains([]string{}, "", false)
-	failed = failed || sContains([]string{"x"}, "", true)
-	failed = failed || sContains([]string{"x"}, "", false)
-	failed = failed || !sContains([]string{"x"}, "x", true)
-	failed = failed || !sContains([]string{"x"}, "x", false)
-	failed = failed || sContains([]string{"x"}, "y", true)
-	failed = failed || sContains([]string{"x"}, "y", false)
-	failed = failed || sContains([]string{"a", "x"}, "y", true)
-	failed = failed || sContains([]string{"a", "x"}, "y", false)
-	failed = failed || sContains([]string{"x", "a"}, "y", true)
-	failed = failed || sContains([]string{"x", "a"}, "y", false)
-
-	if failed {
-		t.Fail()
+	if err := scanner.Err(); err != nil {
+		t.Errorf("Scanner had error %q", err)
 	}
 }
