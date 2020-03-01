@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+// Evaldata provides input data for a evaluation with the hint if it should validate
+// correctly
 type Evaldata struct {
 	Verb     string
 	Subject  []Subject
@@ -19,6 +21,7 @@ func (e Evaldata) String() string {
 		e.Resource.Namespace, e.Resource.Resource, e.Resource.ResourceName)
 }
 
+// TestSMatchOrEmpty tests the SMatchOrEmpty function
 func TestSMatchOrEmpty(t *testing.T) {
 	var failed bool
 	failed = failed || !sMatchOrEmpty("", "abcd")
@@ -31,6 +34,7 @@ func TestSMatchOrEmpty(t *testing.T) {
 	}
 }
 
+// TestSContains tests the SContains function
 func TestSContains(t *testing.T) {
 	var failed bool
 
@@ -52,8 +56,9 @@ func TestSContains(t *testing.T) {
 	}
 }
 
+// createTestdataBasic creates the inputdata for TestRBACBasic
 func createTestdataBasic() ([]Role, []RoleBinding, []Evaldata) {
-	// Verb, Ressource, RessourceName
+	// Rule has the form: Verb, Ressource, RessourceName
 	rules := []Rule{
 		{[]string{"get"}, []string{"res-A"}, []string{"res-1"}},
 		{[]string{"delete"}, []string{"res-A"}, []string{}},
@@ -98,6 +103,7 @@ func createTestdataBasic() ([]Role, []RoleBinding, []Evaldata) {
 	return roles, rolebindings, ev
 }
 
+// TestRBACBasic tests the evaluation of RBAC rules with a few simple tests
 func TestRBACBasic(t *testing.T) {
 	// Setup authz
 	roles, rolebindings, evaldata := createTestdataBasic()
@@ -116,15 +122,14 @@ func TestRBACBasic(t *testing.T) {
 		res := a.Eval(ev.Verb, ev.Subject, ev.Resource)
 		t.Logf("Result: %s", res)
 		if res.Success != ev.Valid {
-			t.Errorf("Should not validate, but did: %q for evaldata %v", res.String(), ev)
-			t.Fail()
+			t.Fatalf("Should not validate, but did: %q for evaldata %v", res.String(), ev)
 		}
 	}
 }
 
 // generatePermutations generates all permutations according to a model.
-// Arg gen must be a slice initialized to 0 with length of model.
-// Arg pos must be set to zero.
+// Argument `gen` must be a slice initialized to 0 with length of model.
+// Argument `pos` must be set to zero.
 func generatePermutations(model []int, gen []int, pos int, ret chan<- []int) {
 	for i := 0; i < model[pos]; i++ {
 		gen[pos] = i
@@ -143,20 +148,20 @@ func generatePermutations(model []int, gen []int, pos int, ret chan<- []int) {
 	}
 }
 
-// modeled after example.yaml
+// generateEvaldataExtensive generates Evaldata objects with all possible permutations
+// modeled after the output of function createExtensiveAuthorizer
 func generateEvaldataExtensive(data chan<- Evaldata) {
-	// Input data
+	// All possible input arguments
 	strs := []string{"",
 		"node-watcher", "linux", "nodes", "locations", "nodes/states",
 		"linux-node-watchers", "bofh", "integrator", "system:core",
 		"global-node-watchers", "superusers", "readonly-services",
-		"readonly", "auditor"}
-
-	verbs := []string{"get", "list", "watch", "delete", "patch", "update"}
-	stypes := []SubjectType{User, Group, ServiceAccount}
+		"readonly", "auditor", "get", "list", "watch", "delete",
+		"patch", "update"}
+	stypes := []SubjectType{User, Group, ServiceAccount, 42}
 
 	// Model: verb, SubjectType, Subject, Namespace, Ressource, RessourceName
-	model := []int{len(verbs), len(stypes), len(strs), len(strs), len(strs), len(strs)}
+	model := []int{len(strs), len(stypes), len(strs), len(strs), len(strs), len(strs)}
 
 	// expCount contains the expected number of permutations
 	expCount := 1
@@ -174,7 +179,7 @@ func generateEvaldataExtensive(data chan<- Evaldata) {
 
 		// Send data through the result channel
 		data <- Evaldata{
-			Verb: verbs[gen[0]],
+			Verb: strs[gen[0]],
 			Subject: []Subject{{ // We handle only one subject
 				Type: stypes[gen[1]],
 				Name: strs[gen[2]],
@@ -195,7 +200,8 @@ func generateEvaldataExtensive(data chan<- Evaldata) {
 	close(data)
 }
 
-// modeled after example.yaml
+// createExtensiveAuthorizer returns an Authorizer that is configured for
+// TestRBACExtensive
 func createExtensiveAuthorizer() *Authorizer {
 	nodeWatcher := Role{
 		Name: "node-watcher",
@@ -272,15 +278,20 @@ func createExtensiveAuthorizer() *Authorizer {
 	return a
 }
 
+// TestRBACExtensive tests all possible permutations provided by generateEvaldataExtensive
+// for the Authorizer created by createExtensiveAuthorizer.
+// This test ensures that the evaluation of the rules doesn't change over time
+// and works as expected. The permutations which evaluate correctly are checked
+// against `rbac_test_validation.list` which also contains the reason for a
+// successful evaluation.
 func TestRBACExtensive(t *testing.T) {
-	// Setup authz
+	// Setup authorizer including rules
 	a := createExtensiveAuthorizer()
 
 	// Open data to validate
 	fd, err := os.Open("rbac_test_validation.list")
 	if err != nil {
-		t.Errorf("Got error opening rbac_test_validation.list: %q", err)
-		return
+		t.Fatalf("Got error opening rbac_test_validation.list: %q", err)
 	}
 	defer fd.Close()
 	scanner := bufio.NewScanner(fd)
@@ -293,19 +304,19 @@ func TestRBACExtensive(t *testing.T) {
 	for e := range ev {
 		res := a.Eval(e.Verb, e.Subject, e.Resource)
 		if res.Success {
+			// Format our tuple (Evaldata, Reason) as string
+			// in order to match it against our validation list
 			now := fmt.Sprintf("%s -> %s", e, res)
-			fmt.Println(now)
+			t.Logf("Validated: %s", now)
 
 			if scanner.Scan() {
 				valid := scanner.Text()
-				//t.Errorf("%s", valid)
 				if now != valid {
-					t.Errorf("Should not validate %s", now)
+					t.Fatalf("Should not validate according to validation.list: %s", now)
 				}
 			} else {
 				if err := scanner.Err(); err != nil {
-					t.Errorf("Scanner had error %q", err)
-					return
+					t.Fatalf("Scanner had error %q", err)
 				}
 				t.Errorf("Successfull validation for %s but expected nothing", e)
 			}
