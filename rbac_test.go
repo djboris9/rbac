@@ -76,9 +76,9 @@ func createTestdataBasic() ([]Role, []RoleBinding, []Evaldata) {
 	}
 
 	subjects := []Subject{
-		{Name: "s-user", Type: User},
-		{Name: "s-group", Type: Group},
-		{Name: "s-serviceaccount", Type: ServiceAccount},
+		{Name: "s-user", Kind: User},
+		{Name: "s-group", Kind: Group},
+		{Name: "s-serviceaccount", Kind: ServiceAccount},
 	}
 
 	rolebindings := []RoleBinding{
@@ -158,7 +158,7 @@ func generateEvaldataExtensive(data chan<- Evaldata) {
 		"global-node-watchers", "superusers", "readonly-services",
 		"readonly", "auditor", "get", "list", "watch", "delete",
 		"patch", "update"}
-	stypes := []SubjectType{User, Group, ServiceAccount, 42}
+	stypes := []SubjectKind{User, Group, ServiceAccount, 42}
 
 	// Model: verb, SubjectType, Subject, Namespace, Ressource, RessourceName
 	model := []int{len(strs), len(stypes), len(strs), len(strs), len(strs), len(strs)}
@@ -181,7 +181,7 @@ func generateEvaldataExtensive(data chan<- Evaldata) {
 		data <- Evaldata{
 			Verb: strs[gen[0]],
 			Subject: []Subject{{ // We handle only one subject
-				Type: stypes[gen[1]],
+				Kind: stypes[gen[1]],
 				Name: strs[gen[2]],
 			}},
 			Resource: Resource{
@@ -233,15 +233,15 @@ func createExtensiveAuthorizer() *Authorizer {
 		Role:      "node-watcher",
 		Subjects: []Subject{
 			{
-				Type: User,
+				Kind: User,
 				Name: "bofh",
 			},
 			{
-				Type: ServiceAccount,
+				Kind: ServiceAccount,
 				Name: "integrator",
 			},
 			{
-				Type: Group,
+				Kind: Group,
 				Name: "system:core",
 			},
 		},
@@ -252,7 +252,7 @@ func createExtensiveAuthorizer() *Authorizer {
 		Role: "node-watcher",
 		Subjects: []Subject{
 			{
-				Type: Group,
+				Kind: Group,
 				Name: "superusers",
 			},
 		},
@@ -263,7 +263,7 @@ func createExtensiveAuthorizer() *Authorizer {
 		Role: "readonly",
 		Subjects: []Subject{
 			{
-				Type: ServiceAccount,
+				Kind: ServiceAccount,
 				Name: "auditor",
 			},
 		},

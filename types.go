@@ -2,16 +2,17 @@ package rbac
 
 import "fmt"
 
-type SubjectType int // TODO rename to kind
+type SubjectKind int
 
 const (
-	User SubjectType = iota // TODO 0 shoud be invalid
+	_ SubjectKind = iota // Initial value is invalid to prevent using not initialized fields
+	User
 	Group
 	ServiceAccount
 )
 
-func (t SubjectType) String() string {
-	return []string{"User", "Group", "ServiceAccount"}[t]
+func (t SubjectKind) String() string {
+	return []string{"User", "Group", "ServiceAccount"}[t-1]
 }
 
 type Rule struct {
@@ -34,11 +35,11 @@ type RoleBinding struct {
 
 type Subject struct {
 	Name string
-	Type SubjectType // TODO rename to kind
+	Kind SubjectKind
 }
 
 func (s Subject) String() string {
-	return fmt.Sprintf("%s:%s", s.Type, s.Name)
+	return fmt.Sprintf("%s:%s", s.Kind, s.Name)
 }
 
 type Resource struct {

@@ -64,7 +64,7 @@ func (a *Authorizer) SetRoleBinding(r RoleBinding) error {
 			return errors.New("every Subject needs to have a name")
 		}
 
-		if subject.Type.String() == "" {
+		if subject.Kind.String() == "" {
 			return errors.New("every Subject needs to have a valid type")
 		}
 	}
@@ -106,7 +106,7 @@ type Result struct {
 	RoleBinding string
 	Role        string
 	Subject     string
-	SubjectType SubjectType
+	SubjectType SubjectKind
 }
 
 func (r Result) String() string {
@@ -131,7 +131,7 @@ func (a *Authorizer) Eval(verb string, subject []Subject, ressource Resource) Re
 		var subjectApplied Subject
 		for _, reqSubject := range subject {
 			for _, subj := range a.rolebindings[rb].Subjects {
-				subjectValidated := (subj.Name == reqSubject.Name && subj.Type == reqSubject.Type)
+				subjectValidated := (subj.Name == reqSubject.Name && subj.Kind == reqSubject.Kind)
 				subjectOk = subjectOk || subjectValidated
 				if subjectValidated {
 					subjectApplied = subj
@@ -157,7 +157,7 @@ func (a *Authorizer) Eval(verb string, subject []Subject, ressource Resource) Re
 					RoleBinding: a.rolebindings[rb].Name,
 					Role:        role.Name,
 					Subject:     subjectApplied.Name,
-					SubjectType: subjectApplied.Type,
+					SubjectType: subjectApplied.Kind,
 				}
 				break
 			}
