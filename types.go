@@ -2,26 +2,6 @@ package rbac
 
 import "fmt"
 
-type Verb int
-
-// TODO: Maybe verbs should also be strings to allow individual operations
-// like impersonate or use in Kubernetes.
-// The set of verbs should be only recommended
-// https://kubernetes.io/docs/reference/access-authn-authz/authorization/#determine-the-request-verb
-const (
-	GET Verb = iota // TODO 0 should be invalid
-	LIST
-	WATCH
-	CREATE
-	UPDATE
-	PATCH
-	DELETE
-)
-
-func (v Verb) String() string {
-	return []string{"get", "list", "watch", "create", "update", "patch", "delete"}[v]
-}
-
 type SubjectType int // TODO rename to kind
 
 const (
@@ -35,7 +15,7 @@ func (t SubjectType) String() string {
 }
 
 type Rule struct {
-	Verbs         []Verb
+	Verbs         []string
 	Resources     []string
 	ResourceNames []string
 }

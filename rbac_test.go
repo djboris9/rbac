@@ -8,7 +8,7 @@ import (
 )
 
 type Evaldata struct {
-	Verb     Verb
+	Verb     string
 	Subject  []Subject
 	Resource Resource
 	Valid    bool
@@ -17,19 +17,6 @@ type Evaldata struct {
 func (e Evaldata) String() string {
 	return fmt.Sprintf("v:%s,s:%v,n:%s,r:%s,rn:%s", e.Verb, e.Subject,
 		e.Resource.Namespace, e.Resource.Resource, e.Resource.ResourceName)
-}
-
-func TestVContains(t *testing.T) {
-	var failed bool
-	failed = failed || vContains([]Verb{}, GET)
-	failed = failed || vContains([]Verb{CREATE}, GET)
-	failed = failed || !vContains([]Verb{GET}, GET)
-	failed = failed || !vContains([]Verb{DELETE, PATCH}, PATCH)
-	failed = failed || !vContains([]Verb{PATCH, CREATE}, PATCH)
-
-	if failed {
-		t.Fail()
-	}
 }
 
 func TestSMatchOrEmpty(t *testing.T) {
@@ -68,11 +55,11 @@ func TestSContains(t *testing.T) {
 func createTestdataBasic() ([]Role, []RoleBinding, []Evaldata) {
 	// Verb, Ressource, RessourceName
 	rules := []Rule{
-		{[]Verb{GET}, []string{"res-A"}, []string{"res-1"}},
-		{[]Verb{DELETE}, []string{"res-A"}, []string{}},
-		{[]Verb{WATCH, LIST}, []string{"res-A", "res-B"}, []string{}},
-		{[]Verb{PATCH}, []string{"res-A", "res-B"}, []string{"res-2"}},
-		{[]Verb{UPDATE}, []string{"res-A", "res-B"}, []string{"res-1", "res-2"}},
+		{[]string{"get"}, []string{"res-A"}, []string{"res-1"}},
+		{[]string{"delete"}, []string{"res-A"}, []string{}},
+		{[]string{"watch", "list"}, []string{"res-A", "res-B"}, []string{}},
+		{[]string{"patch"}, []string{"res-A", "res-B"}, []string{"res-2"}},
+		{[]string{"update"}, []string{"res-A", "res-B"}, []string{"res-1", "res-2"}},
 	}
 
 	roles := []Role{
@@ -99,13 +86,13 @@ func createTestdataBasic() ([]Role, []RoleBinding, []Evaldata) {
 	}
 
 	ev := []Evaldata{
-		{GET, []Subject{{}}, Resource{}, false},
-		{GET, []Subject{{"s-user", User}}, Resource{"", "res-A", "res-1"}, true},
-		{GET, []Subject{{"s-foo", User}}, Resource{"", "res-A", "res-1"}, false},
-		{PATCH, []Subject{{"s-user", User}}, Resource{"", "res-A", "res-1"}, false},
-		{GET, []Subject{{"s-user", ServiceAccount}}, Resource{"", "res-A", "res-1"}, false},
-		{DELETE, []Subject{{"s-user", User}}, Resource{"scope-1", "res-A", ""}, true},
-		{DELETE, []Subject{{"s-user", User}}, Resource{"", "res-A", ""}, false},
+		{"get", []Subject{{}}, Resource{}, false},
+		{"get", []Subject{{"s-user", User}}, Resource{"", "res-A", "res-1"}, true},
+		{"get", []Subject{{"s-foo", User}}, Resource{"", "res-A", "res-1"}, false},
+		{"patch", []Subject{{"s-user", User}}, Resource{"", "res-A", "res-1"}, false},
+		{"get", []Subject{{"s-user", ServiceAccount}}, Resource{"", "res-A", "res-1"}, false},
+		{"delete", []Subject{{"s-user", User}}, Resource{"scope-1", "res-A", ""}, true},
+		{"delete", []Subject{{"s-user", User}}, Resource{"", "res-A", ""}, false},
 	}
 
 	return roles, rolebindings, ev
@@ -165,7 +152,7 @@ func generateEvaldataExtensive(data chan<- Evaldata) {
 		"global-node-watchers", "superusers", "readonly-services",
 		"readonly", "auditor"}
 
-	verbs := []Verb{0, GET, LIST, WATCH, DELETE, PATCH, UPDATE}
+	verbs := []string{"get", "list", "watch", "delete", "patch", "update"}
 	stypes := []SubjectType{User, Group, ServiceAccount}
 
 	// Model: verb, SubjectType, Subject, Namespace, Ressource, RessourceName
@@ -214,11 +201,11 @@ func createExtensiveAuthorizer() *Authorizer {
 		Name: "node-watcher",
 		Rules: []Rule{
 			{
-				Verbs:     []Verb{GET, LIST, WATCH},
+				Verbs:     []string{"get", "list", "watch"},
 				Resources: []string{"nodes", "locations"},
 			},
 			{
-				Verbs:         []Verb{GET, UPDATE, DELETE},
+				Verbs:         []string{"get", "update", "delete"},
 				Resources:     []string{"nodes/states"},
 				ResourceNames: []string{"linux"},
 			},
@@ -228,7 +215,7 @@ func createExtensiveAuthorizer() *Authorizer {
 		Name: "readonly",
 		Rules: []Rule{
 			{
-				Verbs:     []Verb{GET, LIST, WATCH},
+				Verbs:     []string{"get", "list", "watch"},
 				Resources: []string{"nodes", "locations"},
 			},
 		},

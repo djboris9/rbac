@@ -34,7 +34,7 @@ func (a *Authorizer) SetRole(r Role) error {
 		}
 
 		for _, v := range rule.Verbs {
-			if v.String() == "" {
+			if v == "" {
 				return errors.New("Every rule needs to have valid verbs")
 			}
 		}
@@ -117,7 +117,7 @@ func (r Result) String() string {
 	return fmt.Sprintf("authorization succeeded for %s %q as %s using %s", r.SubjectType, r.Subject, r.Role, r.RoleBinding)
 }
 
-func (a *Authorizer) Eval(verb Verb, subject []Subject, ressource Resource) Result {
+func (a *Authorizer) Eval(verb string, subject []Subject, ressource Resource) Result {
 	a.RLock()
 
 	var res Result
@@ -145,7 +145,7 @@ func (a *Authorizer) Eval(verb Verb, subject []Subject, ressource Resource) Resu
 			for _, rule := range role.Rules {
 				ruleRessourcesOk := sContains(rule.Resources, ressource.Resource, false)
 				ruleResourceNamesOk := sContains(rule.ResourceNames, ressource.ResourceName, true)
-				ruleVerbsOk := vContains(rule.Verbs, verb)
+				ruleVerbsOk := sContains(rule.Verbs, verb, false)
 				roleOk = roleOk || (ruleRessourcesOk && ruleResourceNamesOk && ruleVerbsOk)
 			}
 
@@ -179,14 +179,6 @@ func sContains(sl []string, s string, emptyOk bool) bool {
 	ret = ret || (len(sl) == 0 && emptyOk)
 	for _, s2 := range sl {
 		ret = ret || (s == s2)
-	}
-	return ret
-}
-
-func vContains(vl []Verb, v Verb) bool {
-	var ret bool
-	for _, v2 := range vl {
-		ret = ret || (v == v2)
 	}
 	return ret
 }
