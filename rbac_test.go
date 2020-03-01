@@ -110,11 +110,15 @@ func TestRBACBasic(t *testing.T) {
 
 	a := New()
 	for _, role := range roles {
-		a.SetRole(role)
+		if err := a.SetRole(role); err != nil {
+			t.Fatalf("SetRole failed with %q", err)
+		}
 	}
 
 	for _, rb := range rolebindings {
-		a.SetRoleBinding(rb)
+		if err := a.SetRoleBinding(rb); err != nil {
+			t.Fatalf("SetRoleBinding failed with %q", err)
+		}
 	}
 
 	// Evaluate
@@ -175,7 +179,7 @@ func generateEvaldataExtensive(data chan<- Evaldata) {
 
 	counter := 0
 	for gen := range genchan {
-		counter += 1
+		counter++
 
 		// Send data through the result channel
 		data <- Evaldata{
@@ -270,11 +274,31 @@ func createExtensiveAuthorizer() *Authorizer {
 	}
 
 	a := New()
-	a.SetRole(nodeWatcher)
-	a.SetRole(readonly)
-	a.SetRoleBinding(linuxNodeWatchers)
-	a.SetRoleBinding(globalNodeWatchers)
-	a.SetRoleBinding(readOnlyServices)
+	err := a.SetRole(nodeWatcher)
+	if err != nil {
+		panic("SetRole failed")
+	}
+
+	err = a.SetRole(readonly)
+	if err != nil {
+		panic("SetRole failed")
+	}
+
+	err = a.SetRoleBinding(linuxNodeWatchers)
+	if err != nil {
+		panic("SetRoleBinding failed")
+	}
+
+	err = a.SetRoleBinding(globalNodeWatchers)
+	if err != nil {
+		panic("SetRoleBinding failed")
+	}
+
+	err = a.SetRoleBinding(readOnlyServices)
+	if err != nil {
+		panic("SetRoleBinding failed")
+	}
+
 	return a
 }
 

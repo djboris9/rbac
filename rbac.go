@@ -6,12 +6,14 @@ import (
 	"sync"
 )
 
+// Authorizer provides a RBAC authorizer. It must be created by calling New()
 type Authorizer struct {
 	sync.RWMutex
 	roles        map[string]Role
 	rolebindings map[string]RoleBinding
 }
 
+// New instantiates a RBAC authorizer
 func New() *Authorizer {
 	return &Authorizer{
 		roles:        map[string]Role{},
@@ -19,6 +21,7 @@ func New() *Authorizer {
 	}
 }
 
+// SetRole validates a role and adds it to the Authorizer
 func (a *Authorizer) SetRole(r Role) error {
 	if r.Name == "" {
 		return errors.New("Role needs to have a name")
@@ -46,6 +49,7 @@ func (a *Authorizer) SetRole(r Role) error {
 	return nil
 }
 
+// SetRoleBinding validates a role binding and adds it to the Authorizer
 func (a *Authorizer) SetRoleBinding(r RoleBinding) error {
 	if r.Name == "" {
 		return errors.New("RoleBinding needs to have a name")
@@ -75,18 +79,21 @@ func (a *Authorizer) SetRoleBinding(r RoleBinding) error {
 	return nil
 }
 
+// DeleteRole removes a named role from the Authorizer
 func (a *Authorizer) DeleteRole(name string) {
 	a.Lock()
 	delete(a.roles, name)
 	a.Unlock()
 }
 
+// DeleteRoleBinding removes a named role binding from the Authorizer
 func (a *Authorizer) DeleteRoleBinding(name string) {
 	a.Lock()
 	delete(a.rolebindings, name)
 	a.Unlock()
 }
 
+// GetRole returns the named role registered in the Authorizer
 func (a *Authorizer) GetRole(name string) Role {
 	a.RLock()
 	r := a.roles[name]
@@ -94,6 +101,7 @@ func (a *Authorizer) GetRole(name string) Role {
 	return r
 }
 
+// GetRoleBinding returns the named role binding registered in the Authorizer
 func (a *Authorizer) GetRoleBinding(name string) RoleBinding {
 	a.RLock()
 	r := a.rolebindings[name]
@@ -101,6 +109,9 @@ func (a *Authorizer) GetRoleBinding(name string) RoleBinding {
 	return r
 }
 
+// Result represents an RBAC evaluation result. If the evaluation was successful,
+// the field `Success` will be true and the other fields will be set to the parameters
+// that were accepted
 type Result struct {
 	Success     bool
 	RoleBinding string
@@ -109,22 +120,27 @@ type Result struct {
 	SubjectType SubjectKind
 }
 
+// String returns a human readable string with the reason why a authorization
+// succeeded.
 func (r Result) String() string {
 	if !r.Success {
 		return "authorization failed"
+		// TODO: Record the requesting subject, verb and resource and return it too
 	}
 
 	return fmt.Sprintf("authorization succeeded for %s %q as %s using %s", r.SubjectType, r.Subject, r.Role, r.RoleBinding)
 }
 
-func (a *Authorizer) Eval(verb string, subject []Subject, ressource Resource) Result {
+// Eval evaluates the RBAC rules from the Authorizer according to a request and returns the authorization result.
+// The request is represented by a verb, the requesting subject and the requested resource.
+func (a *Authorizer) Eval(verb string, subject []Subject, resource Resource) Result {
 	a.RLock()
 
 	var res Result
 	var r bool
 	for rb := range a.rolebindings {
 		// Check if scope matches rolebinding
-		scopeOk := sMatchOrEmpty(a.rolebindings[rb].Namespace, ressource.Namespace)
+		scopeOk := sMatchOrEmpty(a.rolebindings[rb].Namespace, resource.Namespace)
 
 		// Check if subject matches rolebinding
 		var subjectOk bool
@@ -139,12 +155,12 @@ func (a *Authorizer) Eval(verb string, subject []Subject, ressource Resource) Re
 			}
 		}
 
-		// Check if a rule matches the ressource
+		// Check if a rule matches the resource
 		if role, ok := a.roles[a.rolebindings[rb].Role]; ok {
 			var roleOk bool
 			for _, rule := range role.Rules {
-				ruleRessourcesOk := sContains(rule.Resources, ressource.Resource, false)
-				ruleResourceNamesOk := sContains(rule.ResourceNames, ressource.ResourceName, true)
+				ruleRessourcesOk := sContains(rule.Resources, resource.Resource, false)
+				ruleResourceNamesOk := sContains(rule.ResourceNames, resource.ResourceName, true)
 				ruleVerbsOk := sContains(rule.Verbs, verb, false)
 				roleOk = roleOk || (ruleRessourcesOk && ruleResourceNamesOk && ruleVerbsOk)
 			}
@@ -169,11 +185,13 @@ func (a *Authorizer) Eval(verb string, subject []Subject, ressource Resource) Re
 	return res
 }
 
+// sMatchOrEmpty returns true if `s` is an empty string or equals to `s2`
 func sMatchOrEmpty(s, s2 string) bool {
 	return s == "" || s == s2
 }
 
-// emptyOk: An empty slice will return true
+// sContains returns true if `sl` contains `s`.
+// If `emptyOk` is true and `sl` is an empty slice, it will return also true.
 func sContains(sl []string, s string, emptyOk bool) bool {
 	var ret bool
 	ret = ret || (len(sl) == 0 && emptyOk)
