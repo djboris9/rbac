@@ -118,14 +118,19 @@ type Result struct {
 	Role        string
 	Subject     string
 	SubjectType SubjectKind
+
+	// Request parameters
+	RequestingSubject []Subject
+	RequestedVerb     string
+	RequestedResource Resource
 }
 
 // String returns a human readable string with the reason why a authorization
 // succeeded.
 func (r Result) String() string {
 	if !r.Success {
-		return "authorization failed"
-		// TODO: Record the requesting subject, verb and resource and return it too
+		return fmt.Sprintf("authorization failed for %s requesting %s %s",
+			r.RequestingSubject, r.RequestedVerb, r.RequestedResource)
 	}
 
 	return fmt.Sprintf("authorization succeeded for %s %q as %s using %s", r.SubjectType, r.Subject, r.Role, r.RoleBinding)
@@ -181,7 +186,10 @@ func (a *Authorizer) Eval(verb string, subject []Subject, resource Resource) Res
 	}
 	a.RUnlock()
 
-	res.Success = r
+	res.RequestedVerb = verb
+	res.RequestingSubject = subject // maybe deep copy subject as it is a slice?
+	res.RequestedResource = resource
+
 	return res
 }
 

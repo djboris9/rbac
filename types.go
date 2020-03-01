@@ -19,6 +19,10 @@ const (
 )
 
 func (t SubjectKind) String() string {
+	if t < User || t > ServiceAccount {
+		return ""
+	}
+
 	return []string{"User", "Group", "ServiceAccount"}[t-1]
 }
 
@@ -65,4 +69,8 @@ type Resource struct {
 	Namespace    string
 	Resource     string
 	ResourceName string
+}
+
+func (r Resource) String() string {
+	return fmt.Sprintf("%q:%q:%q", r.Namespace, r.Resource, r.ResourceName)
 }
