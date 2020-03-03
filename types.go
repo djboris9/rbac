@@ -27,7 +27,8 @@ func (t SubjectKind) String() string {
 }
 
 // Rule represents a rule for authorization.
-// TODO: Example and explaination what is required and how combinations are evaluated
+// Verbs and resources are required. In order to evaluate successfully, the
+// request parameters must match a combination for all given fields.
 type Rule struct {
 	Verbs         []string
 	Resources     []string
@@ -35,8 +36,14 @@ type Rule struct {
 }
 
 // Role represents a role for authorization.
-// A role is successfully evaluated if at least one (OR-logic) of the rules succeeds the evaluation
-// TODO: Example
+// A role is successfully evaluated if at least one (OR-logic) of the rules succeeds the evaluation.
+//     Name: node-watcher
+//     Rules:
+//     - Verbs: ["get", "list", "watch"]
+//       Resources: ["nodes", "locations"]
+//     - Verbs: ["get", "update", "delete"]
+//       Resources: ["nodes/states"]
+//       ResourceNames: ["linux"]
 type Role struct {
 	Name  string
 	Rules []Rule
@@ -46,6 +53,19 @@ type Role struct {
 // If the namespace is set to an empty string, the evaluation succeedes for every request namespace,
 // thus representing a global scope. If it is set to a non empty value, the roles are only evaluated
 // for requests containing the same namespace.
+//     Name: administrators-are-node-watchers
+//     Role: node-watcher
+//     Namespace: nodes-of-bofh
+//     Subjects:
+//     - Name: bofh
+//       Kind: User
+//     - Name: administrators
+//       Kind: Group
+//     - Name: system:serviceaccount:nodes-of-bofh:bugging-software
+//       Kind: ServiceAccount
+// The example above shows a RoleBinding that applies the operations validated
+// by the role `node-watcher` at namespace `nodes-of-bofh` for bfh, administrators
+// and a software.
 type RoleBinding struct {
 	Name      string
 	Role      string
@@ -53,7 +73,16 @@ type RoleBinding struct {
 	Subjects  []Subject
 }
 
-// Subject represents a requestor that requests a resource
+// Subject represents a requestor that requests a resource. The following block
+// shows an example of subjects inspired by Kubernetes RBAC authorization:
+//     - Name: bofh
+//       Kind: User
+//     - Name: administrators
+//       Kind: Group
+//     - Name: system:serviceaccount:my-namespace:my-account
+//       Kind: ServiceAccount
+//     - Name: system:authenticated
+//       Kind: Group
 type Subject struct {
 	Name string
 	Kind SubjectKind
