@@ -1,5 +1,7 @@
 # Kubernetes inspired RBAC for Go
 
+Status: *In development*
+
 ## Walkthrough
 This walkthrough is based on [./examples/example.go](./examples/example.go).
 
@@ -66,4 +68,4 @@ in a multi-tenant system where roles are global and the rolebindings are namespa
     })
 
 ## Rule loaders
-TODO
+*TODO*
