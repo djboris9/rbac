@@ -3,7 +3,7 @@
 Status: *In development*
 
 ## Walkthrough
-This walkthrough is based on [./examples/example.go](./examples/example.go).
+This walkthrough is based on [./examples/example.go](./examples/example.go). It shows a simple setup for authorizing web requests.
 
 As a first step, import this package and initialize the authorizer:
 
@@ -71,6 +71,48 @@ authz.SetRoleBinding(rbac.RoleBinding{
         Kind: rbac.ServiceAccount,
     }},
 })
+```
+
+Now you can use the authorizer by passing a subject (the authenticated requestor)
+and request informations to the rbac evaluation function:
+
+```go
+subject := []rbac.Subject{{
+    Name: "system:serviceaccount:alpha:my-watcher",
+    Kind: rbac.ServiceAccount,
+}, {
+    Name: "system:authenticated",
+    Kind: rbac.Group,
+}}
+        
+resource := rbac.Resource{
+    Namespace:    "alpha",
+    Resource:     "states",
+    ResourceName: "nodes",
+}
+
+// Authorize the request
+result := h.authz.Eval("patch", subject, resource)
+
+fmt.Println(result)
+// authorization succeeded for ServiceAccount "system:serviceaccount:alpha:my-watcher" as node-watcher using alpha-node-watchers
+
+fmt.Println(result.Success)
+// true
+
+// Now try to access something different with the same subject
+resource = rbac.Resource{
+    Namespace:    "beta",
+    Resource:     "states",
+    ResourceName: "nodes",
+}
+result := h.authz.Eval("patch", subject, resource)
+
+fmt.Println(result)
+// authorization failed for [ServiceAccount:system:serviceaccount:alpha:my-watcher Group:system:authenticated] requesting patch "beta":"states":"nodes"
+
+fmt.Println(result.Success)
+// false
 ```
 
 ## Rule loaders
