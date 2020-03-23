@@ -99,7 +99,11 @@ fmt.Println(result)
 
 fmt.Println(result.Success)
 // true
+```
 
+As you see, the request was successfully authorized, we can try to access a different namespace with the same subject_
+
+```go
 // Now try to access something different with the same subject
 resource = rbac.Resource{
     Namespace:    "beta",
@@ -114,6 +118,7 @@ fmt.Println(result)
 fmt.Println(result.Success)
 // false
 ```
+This evaluation failed as expected, because we don't have a maching rolebinding and role for this subject and request.
 
 ## Rule loaders
 *TODO*
