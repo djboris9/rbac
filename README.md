@@ -92,7 +92,7 @@ resource := rbac.Resource{
 }
 
 // Authorize the request
-result := h.authz.Eval("patch", subject, resource)
+result := authz.Eval("patch", subject, resource)
 
 fmt.Println(result)
 // authorization succeeded for ServiceAccount "system:serviceaccount:alpha:my-watcher" as node-watcher using alpha-node-watchers
@@ -118,7 +118,7 @@ fmt.Println(result)
 fmt.Println(result.Success)
 // false
 ```
-This evaluation failed as expected, because we don't have a maching rolebinding and role for this subject and request.
+This evaluation failed as expected, because we don't have a matching rolebinding and role for this subject and request.
 
 ## Rule loaders
 *TODO*
