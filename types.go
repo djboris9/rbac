@@ -103,3 +103,19 @@ type Resource struct {
 func (r Resource) String() string {
 	return fmt.Sprintf("%q:%q:%q", r.Namespace, r.Resource, r.ResourceName)
 }
+
+// Result represents a RBAC evaluation result. If the evaluation was successful,
+// the field `Success` will be true and the other fields will be set to the parameters
+// that were accepted
+type Result struct {
+	Success     bool
+	RoleBinding string
+	Role        string
+	Subject     string
+	SubjectType SubjectKind
+
+	// Request parameters
+	RequestingSubject []Subject
+	RequestedVerb     string
+	RequestedResource Resource
+}

@@ -109,22 +109,6 @@ func (a *Authorizer) GetRoleBinding(name string) RoleBinding {
 	return r
 }
 
-// Result represents an RBAC evaluation result. If the evaluation was successful,
-// the field `Success` will be true and the other fields will be set to the parameters
-// that were accepted
-type Result struct {
-	Success     bool
-	RoleBinding string
-	Role        string
-	Subject     string
-	SubjectType SubjectKind
-
-	// Request parameters
-	RequestingSubject []Subject
-	RequestedVerb     string
-	RequestedResource Resource
-}
-
 // String returns a human readable string with the reason why a authorization
 // succeeded.
 func (r Result) String() string {
